@@ -1,0 +1,104 @@
+<project name="oai-pmh-harvester" default="dist" basedir=".">
+    <description>
+        Build file for OAI harvester
+    </description>
+  
+  <!-- set global properties -->
+  <property name="src.dir" location="src"/>
+  <property name="build.dir" location="build"/>
+  <property name="dist.dir"  location="dist"/>
+  <property name="lib.dir"  location="lib"/>
+  <property name="etc.dir"  location="etc"/>
+  <property name="scripts.dir"  location="scripts"/>
+  <property name="harvest.script" value="${scripts.dir}/harvest.sh"/>
+  <property name="harvester.jar"  value="harvester.jar"/>
+
+
+  <!-- Compilation options -->
+  <property name="compile.debug"       value="true"/>
+  <property name="compile.deprecation" value="false"/>
+  <property name="compile.optimize"    value="true"/>
+  <property name="compile.includeantruntime"    value="false"/>
+
+  <path id="compile.classpath">
+  <!--Include all the jars in the lib folder -->
+    <fileset dir="${lib.dir}">
+      <include name="**/*.jar"/>
+    </fileset>  	
+  </path>
+
+  <!-- ************************* TARGETS ************************************* -->
+
+  <target name="init">
+    <!-- Create the build.dir structure used by compile -->
+    <echo message="Creating directory (if it doesn't exist): ${build.dir}"/>
+    <mkdir dir="${build.dir}"/>
+  </target>
+
+
+   <!-- Compile the harvester code-->
+  <target name="compile" depends="init" description="compile the source " >
+    <!-- Compile the java code from ${src.dir} into ${build.dir} -->
+    <javac srcdir="${src.dir}" destdir="${build.dir}" debug="${compile.debug}"
+		deprecation="${compile.deprecation}" optimize="${compile.optimize}" includeantruntime="{compile.includeantruntime}">
+   		<classpath refid="compile.classpath"/>
+    </javac>
+  </target>
+
+
+  <!-- Generate the harvester jar file-->
+  <target name="dist" depends="compile" description="generate the dist.distribution" >
+    <!-- Create the dist.dirribution directory -->
+    <echo message="Creating directory (if it doesn't exist): ${dist.dir}"/>
+    <mkdir dir="${dist.dir}"/>
+    
+    <!-- We want to add all the jars in the lib to the Class-Path section in the manifest-->
+	<manifestclasspath property="lib.list" jarfile="${dist.dir}/${harvester.jar}">
+		<classpath refid="compile.classpath" />
+  	</manifestclasspath>
+    <!-- Put everything in ${build.dir} into harvester.jar -->
+  	<jar jarfile="${dist.dir}/${harvester.jar}" basedir="${build.dir}" >
+		<manifest>
+			<attribute name="Class-Path" value="${lib.list}"/>
+			<attribute name="Main-Class" value="ORG.oclc.oai.harvester2.app.RawWrite"/>
+			<attribute name="Product-Name" value="OAI HARVESTER"/>
+			<attribute name="Package-Title" value="ORG.oclc.oai.harvester2"/>
+		</manifest>
+ 	</jar>
+  </target>
+
+
+   <!-- Delete the ${build.dir} and ${dist.dir} directory trees -->
+  <target name="clean"  description="Clean up" >
+    <echo message="Deleting : ${build.dir} and ${dist.dir}"/>
+    <delete dir="${build.dir}"/>
+    <delete dir="${dist.dir}"/>
+  </target>
+  
+  
+  <!-- Build the harvest jar (if not present), then call the harvest script-->
+  <target name="do_harvest" description="Start new harvest" depends="absent" >
+  		<chmod file="${harvest.script}" perm="755"/> 
+  		<echo message="Calling harvest script at  : ${harvest.script}"/>
+  		<exec dir="${scripts.dir}" executable="${harvest.script}">
+  		</exec>
+  </target>
+
+
+  <!--Determines whether we need to call the dist target to generate a jar
+  before calling the harvest script-->
+  <target name="absent" unless="harvest.jar.present" depends="eval.condition">
+    		<echo message="Harvest jar not found - call dist target"/>
+    		<antcall target="dist"/>
+  </target> 
+
+
+  <target name="eval.condition">
+  	<!--Check if the harvester jar has been generated -->
+    <condition property="harvest.jar.present">
+    	<available file="${dist.dir}/${harvester.jar}" type="file"/>
+    </condition>
+  </target> 
+	
+  
+</project>
